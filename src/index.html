@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TechBlock - Focus & Productivity</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Local Storage Modal -->
+  <div id="permission-overlay" class="overlay hidden">
+    <div class="modal glass-panel">
+      <div class="modal-icon material-symbols-outlined">database</div>
+      <h2>Allow Local Storage?</h2>
+      <p>TechBlock saves your notes, history, blocked sites/apps and all app data locally on <b>this device only</b>. Nothing is uploaded anywhere.</p>
+      <div class="modal-actions">
+        <button id="perm-deny" class="btn btn-ghost">Not Now</button>
+        <button id="perm-allow" class="btn btn-primary">Allow & Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+    <!-- Floating SideNavBar -->
+    <aside class="sidebar glass-panel">
+      <div class="brand">
+        <div class="brand-logo">TB</div>
+        <div class="brand-text">
+          <h1>TechBlock</h1>
+          <span>Premium Focus</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-page="home">
+          <span class="material-symbols-outlined">home</span><span>Home</span>
+        </button>
+        <button class="nav-item" data-page="websites">
+          <span class="material-symbols-outlined">language</span><span>Website Blocker</span>
+        </button>
+        <button class="nav-item" data-page="apps">
+          <span class="material-symbols-outlined">app_blocking</span><span>App Blocker</span>
+        </button>
+        <button class="nav-item" data-page="notes">
+          <span class="material-symbols-outlined">edit_note</span><span>Notes & Tasks</span>
+        </button>
+        <button class="nav-item" data-page="ai">
+          <span class="material-symbols-outlined">smart_toy</span><span>TechBlock AI</span>
+        </button>
+        <button class="nav-item" data-page="history">
+          <span class="material-symbols-outlined">history</span><span>History</span>
+        </button>
+        <button class="nav-item" data-page="getapp">
+          <span class="material-symbols-outlined">get_app</span><span>Get TechBlock</span>
+        </button>
+        <button class="nav-item" data-page="about">
+          <span class="material-symbols-outlined">info</span><span>About</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="stat-mini">
+          <div class="sm-row"><span class="material-symbols-outlined sm-ico flame">local_fire_department</span><span class="sm-label">Day Streak</span><span class="sm-val" id="sidebar-streak">0</span></div>
+          <div class="sm-row"><span class="material-symbols-outlined sm-ico star">stars</span><span class="sm-label">Total Points</span><span class="sm-val" id="sidebar-points">0</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content glass-main">
+      <!-- HOME -->
+      <section class="page active" id="page-home">
+        <div class="page-head">
+          <h2 class="page-title">Dashboard</h2>
+          <p class="page-sub">Focus engaged. Ready to work.</p>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card glass-panel">
+            <div class="stat-ico err"><span class="material-symbols-outlined">language</span></div>
+            <div class="stat-value" id="stat-sites">0</div>
+            <div class="stat-label">Websites Blocked</div>
+          </div>
+          <div class="stat-card glass-panel">
+            <div class="stat-ico pri"><span class="material-symbols-outlined">app_blocking</span></div>
+            <div class="stat-value" id="stat-apps">0</div>
+            <div class="stat-label">Apps Blocked</div>
+          </div>
+          <div class="stat-card glass-panel">
+            <div class="stat-ico sec"><span class="material-symbols-outlined">task_alt</span></div>
+            <div class="stat-value" id="stat-tasks">0</div>
+            <div class="stat-label">Tasks Completed</div>
+          </div>
+          <div class="stat-card glass-panel">
+            <div class="stat-ico gold"><span class="material-symbols-outlined">stars</span></div>
+            <div class="stat-value" id="stat-points">0</div>
+            <div class="stat-label">Total Points</div>
+          </div>
+        </div>
+
+        <div class="home-row">
+          <div class="panel glass-panel quick-panel">
+            <h3 class="panel-title"><span class="pt-ico sec">⚡</span> Quick Block a Website</h3>
+            <div class="quick-block">
+              <input type="text" id="quick-url" placeholder="Paste any link or site name, e.g. instagram.com">
+              <div class="quick-controls">
+                <select id="quick-time">
+                  <option value="30">30 min</option>
+                  <option value="60" selected>1 hour</option>
+                  <option value="120">2 hours</option>
+                  <option value="360">6 hours</option>
+                  <option value="1440">24 hours</option>
+                </select>
+                <button class="btn btn-block-now" id="quick-block-btn">
+                  <span class="material-symbols-outlined">block</span> Block Now
+                </button>
+              </div>
+            </div>
+            <div class="admin-note">
+              <span class="material-symbols-outlined">admin_panel_settings</span> Run as Administrator for full blocking power
+            </div>
+          </div>
+
+          <div class="panel glass-panel">
+            <h3 class="panel-title"><span class="pt-ico err">⏱</span> Active Blocks</h3>
+            <div id="home-active-blocks" class="active-list"><p class="muted">No active blocks.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WEBSITES -->
+      <section class="page" id="page-websites">
+        <div class="page-head">
+          <h2 class="page-title">Website Blocker</h2>
+          <p class="page-sub">Set a timer and the site is blocked from every browser until it ends.</p>
+        </div>
+
+        <div class="wb-row">
+          <div class="panel glass-panel">
+            <h3 class="panel-title"><span class="pt-ico pri">🔒</span> Block a Website</h3>
+            <div class="blocker-row">
+              <input type="text" id="site-url" placeholder="Paste link of any site, e.g. facebook.com">
+              <input type="number" id="site-time" min="1" placeholder="Minutes (e.g. 60)">
+              <button class="btn btn-primary" id="site-block-btn"><span class="material-symbols-outlined d-icon">shield_lock</span> Enforce Block</button>
+            </div>
+            <div id="app-tip" class="app-tip" style="display:none;"></div>
+            <p class="hint">The site is completely blocked from every browser and the terminal until the timer ends. Once blocked, it cannot be unblocked early.</p>
+          </div>
+
+          <div class="panel glass-panel">
+            <h3 class="panel-title"><span class="pt-ico err">⏱</span> Currently Blocked Sites</h3>
+            <div id="site-list" class="active-list"><p class="muted">Nothing is blocked right now.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- APPS -->
+      <section class="page" id="page-apps">
+        <div class="page-head">
+          <h2 class="page-title">App Blocker</h2>
+          <p class="page-sub">Temporarily restrict access to distracting applications on this PC.</p>
+        </div>
+
+        <div class="panel glass-panel">
+          <div class="apps-head">
+            <h3 class="panel-title no-mb">Installed Apps on this PC</h3>
+            <button class="btn btn-ghost" id="refresh-apps"><span class="material-symbols-outlined d-icon">refresh</span> Refresh</button>
+          </div>
+          <input type="text" id="app-search" class="search-input" placeholder="Search installed apps...">
+          <div id="apps-list" class="apps-grid"><p class="muted">Loading installed apps...</p></div>
+        </div>
+
+        <div class="panel glass-panel">
+          <h3 class="panel-title"><span class="pt-ico err">🚫</span> Currently Blocked Apps</h3>
+          <div id="app-blocked-list" class="active-list"><p class="muted">No apps are blocked.</p></div>
+        </div>
+      </section>
+
+      <!-- NOTES -->
+      <section class="page" id="page-notes">
+        <div class="page-head">
+          <h2 class="page-title">Notes & Tasks</h2>
+          <p class="page-sub">Manage your focus blocks and track your productivity points.</p>
+        </div>
+
+        <div class="notes-top">
+          <div class="streak-card glass-panel hover-err">
+            <div class="sc-ico"><span class="material-symbols-outlined flame">local_fire_department</span></div>
+            <div>
+              <div class="sc-label">Current Streak</div>
+              <div class="sc-num"><span class="big" id="notes-streak">0</span> days</div>
+            </div>
+          </div>
+          <div class="streak-card glass-panel hover-sec">
+            <div class="sc-ico gold"><span class="material-symbols-outlined">stars</span></div>
+            <div>
+              <div class="sc-label">Total Points</div>
+              <div class="sc-num"><span class="big gold" id="notes-points">0</span> pts</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nt-tabs">
+          <button class="nt-tab active" data-nt="tasks">✅ Tasks</button>
+          <button class="nt-tab" data-nt="notes">📝 Notes</button>
+        </div>
+
+        <div class="nt-pane active" id="nt-tasks">
+          <div class="panel glass-panel">
+            <h3 class="panel-title">New Focus Task</h3>
+            <div class="task-form">
+              <input type="text" id="task-text" placeholder="What needs to be done?">
+              <input type="number" id="task-time" min="1" placeholder="Minutes">
+              <button class="btn btn-primary" id="task-add-btn"><span class="material-symbols-outlined d-icon">add</span> Add Task</button>
+            </div>
+            <p class="hint"><b>Point system:</b> finish before half the time → <span class="p-green">11 pts</span> • on time → <span class="p-yellow">10 pts</span> • every 10 min late −1 pt • more than 30 min late → <span class="p-red">0 pts</span></p>
+          </div>
+          <div id="task-list" class="task-list"><p class="muted">No tasks yet. Add your first task above!</p></div>
+        </div>
+
+        <div class="nt-pane" id="nt-notes">
+          <div class="panel glass-panel">
+            <h3 class="panel-title">New Note</h3>
+            <div class="task-form">
+              <input type="text" id="note-text" placeholder="Write your note...">
+              <button class="btn btn-primary" id="note-add-btn"><span class="material-symbols-outlined d-icon">add</span> Add Note</button>
+            </div>
+            <p class="hint">Notes have <b>no timer</b> — just write and mark done whenever. Completing a note earns <span class="p-yellow">+10 pts</span> and counts toward your streak.</p>
+          </div>
+          <div id="note-list" class="task-list"></div>
+        </div>
+      </section>
+
+      <!-- AI -->
+      <section class="page" id="page-ai">
+        <div class="page-head">
+          <h2 class="page-title">TechBlock AI</h2>
+          <p class="page-sub">Ask me to block a website or app, fix an issue, or anything else.</p>
+        </div>
+        <div class="panel glass-panel ai-panel">
+          <div class="ai-head">
+            <div class="ai-status">
+              <span class="ai-dot" id="ai-dot"></span>
+              <span id="ai-status-text">Checking opencode...</span>
+            </div>
+          </div>
+          <div id="ai-chat" class="chat-box">
+            <div class="chat-msg ai">
+              <div class="bubble">Hi! I'm TechBlock AI, powered by opencode. Ask me to block a website or app, fix an issue, or anything else. For example: "Block instagram.com for 2 hours".</div>
+            </div>
+          </div>
+          <div class="chat-input">
+            <textarea id="ai-input" rows="2" placeholder="Ask me anything... e.g. Block youtube.com for 1 hour"></textarea>
+            <button class="btn btn-primary" id="ai-send">Send</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- HISTORY -->
+      <section class="page" id="page-history">
+        <div class="page-head">
+          <h2 class="page-title">Activity History</h2>
+          <p class="page-sub">A complete timeline of your digital focus and blocking events.</p>
+        </div>
+        <div class="panel glass-panel">
+          <div class="apps-head">
+            <h3 class="panel-title no-mb">Everything saved locally on this device</h3>
+            <button class="btn btn-ghost danger" id="clear-history"><span class="material-symbols-outlined d-icon">delete</span> Clear</button>
+          </div>
+          <div id="history-list" class="history-list"><p class="muted">No history yet.</p></div>
+        </div>
+      </section>
+
+      <!-- GET APP -->
+      <section class="page" id="page-getapp">
+        <div class="page-head">
+          <h2 class="page-title">Get TechBlock</h2>
+          <p class="page-sub">Take TechBlock with you. Scan, download, install — focus anywhere.</p>
+        </div>
+        <div class="getapp-row">
+          <div class="panel glass-panel qr-panel glow-hover">
+            <h3 class="panel-title">Scan to Download</h3>
+            <div id="qr-box" class="qr-box"><p class="muted">Generating QR code...</p></div>
+            <p class="qr-target" id="qr-target"></p>
+          </div>
+          <div class="panel glass-panel">
+            <h3 class="panel-title">Direct Download</h3>
+            <p class="muted step-p">Download the TechBlock installer below and follow the prompts to install it on your device.</p>
+            <a href="#" id="dl-link" target="_blank" rel="noopener" class="btn btn-primary dl-btn"><span class="material-symbols-outlined d-icon">download</span> Download for Windows</a>
+            <div class="steps">
+              <div class="step"><span class="step-num">1</span><p><b>Install</b><span class="step-sub">Open the downloaded file and follow the prompts.</span></p></div>
+              <div class="step"><span class="step-num">2</span><p><b>Run as Administrator</b><span class="step-sub">Required for full website & app blocking power.</span></p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABOUT -->
+      <section class="page" id="page-about">
+        <div class="page-head">
+          <h2 class="page-title">About TechBlock</h2>
+          <p class="page-sub">A professional suite designed to minimize digital noise and maximize deep work.</p>
+        </div>
+        <div class="about-card glass-panel">
+          <div class="about-avatar">KC</div>
+          <div class="about-tag">Founder</div>
+          <h3>Kartik Chobdar</h3>
+          <p class="about-role">Creator of Explainer Techoo</p>
+          <p class="about-mail">📧 <a href="mailto:explainertechoo77@gmail.com">explainertechoo77@gmail.com</a></p>
+
+          <div class="socials">
+            <a class="social glass-hover" href="https://www.instagram.com/_explainertechoo/" target="_blank" rel="noopener">
+              <span class="social-ico ig"><span class="material-symbols-outlined">photo_camera</span></span>
+              <span>Instagram</span>
+              <span class="handle">@_explainertechoo</span>
+            </a>
+            <a class="social glass-hover" href="https://www.youtube.com/@ExplainerTechoo" target="_blank" rel="noopener">
+              <span class="social-ico yt"><span class="material-symbols-outlined">play_circle</span></span>
+              <span>YouTube</span>
+              <span class="handle">ExplainerTechoo</span>
+            </a>
+            <a class="social glass-hover" href="https://x.com/ExplainerTechoo" target="_blank" rel="noopener">
+              <span class="social-ico x"><span class="material-symbols-outlined">close</span></span>
+              <span>X (Twitter)</span>
+              <span class="handle">@ExplainerTechoo</span>
+            </a>
+          </div>
+
+          <p class="copyright">© All copyright reserved to <b>Kartik Chobdar / Explainer Techoo</b>.<br>TechBlock · Made with ❤️ · Explainer Techoo</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

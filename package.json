@@ -1,0 +1,53 @@
+{
+  "name": "techblock",
+  "version": "1.0.0",
+  "description": "TechBlock - Focus, Website & App Blocker with Tasks by Kartik Chobdar / Explainer Techoo",
+  "main": "src/main.js",
+  "author": "Kartik Chobdar / Explainer Techoo",
+  "license": "All rights reserved",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
+  "build": {
+    "appId": "com.explainertechoo.techblock",
+    "productName": "TechBlock",
+    "copyright": "Copyright © Kartik Chobdar / Explainer Techoo. All rights reserved.",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false,
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "allowScripts": {
+    "electron@30.5.1": true
+  }
+}
