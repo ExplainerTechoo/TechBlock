@@ -307,7 +307,7 @@ function getActiveAppBlocks() {
 
 /* ---------------- QR Code ---------------- */
 
-const DOWNLOAD_URL = 'https://github.com/ExplainerTechoo/TechBlock';
+const DOWNLOAD_URL = 'https://github.com/kartikchobdar775-stack/TechBlock';
 
 function generateQR(text) {
   return new Promise((resolve, reject) => {

@@ -12,7 +12,7 @@ let state = {
   storageGranted: false
 };
 
-const DOWNLOAD_URL = 'https://github.com/ExplainerTechoo/TechBlock';
+const DOWNLOAD_URL = 'https://github.com/kartikchobdar775-stack/TechBlock';
 
 /* ---------------- Navigation ---------------- */
 document.querySelectorAll('.nav-item').forEach(btn => {
