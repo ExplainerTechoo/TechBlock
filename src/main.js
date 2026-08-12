@@ -5,6 +5,7 @@ const os = require('os');
 const { exec, execFile, execFileSync, spawn } = require('child_process');
 const QRCode = require('qrcode');
 const supabaseService = require('./supabase');
+const { autoUpdater } = require('electron-updater');
 
 const HOSTS_PATH = 'C:\\Windows\\System32\\drivers\\etc\\hosts';
 const DATA_DIR = path.join(app.getPath('userData'), 'data');
@@ -78,6 +79,46 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   mainWindow.on('closed', () => { mainWindow = null; });
+}
+
+function setupAutoUpdater() {
+  autoUpdater.logger = require('electron-log');
+  autoUpdater.logger.transports.file.level = 'info';
+  
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for update...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available:', info.version);
+    mainWindow.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('Update not available:', info.version);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('Auto-updater error:', err);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    mainWindow.webContents.send('download-progress', progressObj);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('Update downloaded:', info.version);
+    mainWindow.webContents.send('update-downloaded', info);
+  });
+
+  // Check for updates on startup
+  autoUpdater.checkForUpdatesAndNotify();
+
+  // Check every 4 hours
+  setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify();
+  }, 4 * 60 * 60 * 1000);
+}
 }
 
 /* ---------------- Website blocking via HOSTS file ---------------- */
@@ -508,6 +549,7 @@ app.whenReady().then(() => {
   loadStore();
   registerIpc();
   createWindow();
+  setupAutoUpdater();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
