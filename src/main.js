@@ -4,8 +4,8 @@ const fs = require('fs');
 const os = require('os');
 const { exec, execFile, execFileSync, spawn } = require('child_process');
 const QRCode = require('qrcode');
-const supabaseService = require('./supabase');
 const { autoUpdater } = require('electron-updater');
+const crypto = require('crypto');
 
 const HOSTS_PATH = 'C:\\Windows\\System32\\drivers\\etc\\hosts';
 const DATA_DIR = path.join(app.getPath('userData'), 'data');
@@ -49,6 +49,16 @@ function loadStore() {
   if (!store.notes) store.notes = [];
   if (!store.leaderboard) store.leaderboard = [];
   if (!store.totalPoints) store.totalPoints = 0;
+  if (!store.users) store.users = {};
+  if (!store.userStats) store.userStats = {};
+  if (!store.comments) store.comments = [];
+}
+
+function formatTimeSpent(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
 }
 
 function saveStore() {
@@ -462,53 +472,118 @@ function registerIpc() {
     catch (err) { return { ok: false, error: err.message }; }
   });
 
-  /* ---------------- Supabase Auth, Stats, Comments & Admin ---------------- */
+/* ---------------- Local Auth, Stats, Comments & Admin ---------------- */
   ipcMain.handle('auth:login', async (e, email, password) => {
-    return await supabaseService.loginUser(email, password);
+    if (!store.users) store.users = {};
+    const user = Object.values(store.users).find(u => u.email === email && u.password === password);
+    if (!user) return { ok: false, error: 'Invalid email or password' };
+    return { ok: true, user: { id: user.id, email: user.email, username: user.username || null } };
   });
 
   ipcMain.handle('auth:signup', async (e, email, password, username) => {
-    return await supabaseService.signUpUser(email, password, username);
+    if (!store.users) store.users = {};
+    if (Object.values(store.users).some(u => u.email === email)) {
+      return { ok: false, error: 'Email already registered' };
+    }
+    if (username && Object.values(store.users).some(u => u.username === username)) {
+      return { ok: false, error: 'Username already taken' };
+    }
+    const id = crypto.randomUUID();
+    const user = { id, email, username: username || null, password, createdAt: Date.now() };
+    store.users[id] = user;
+    saveStore();
+    return { ok: true, user: { id, email, username: user.username } };
   });
 
   ipcMain.handle('auth:setUsername', async (e, userId, email, username) => {
-    return await supabaseService.setUsername(userId, email, username);
+    if (!store.users || !store.users[userId]) return { ok: false, error: 'User not found' };
+    if (Object.values(store.users).some(u => u.username === username && u.id !== userId)) {
+      return { ok: false, error: 'Username already taken' };
+    }
+    store.users[userId].username = username;
+    saveStore();
+    return { ok: true, username };
   });
 
   ipcMain.handle('auth:deleteAccount', async (e, userId) => {
-    return await supabaseService.deleteUserAccount(userId);
+    if (!store.users || !store.users[userId]) return { ok: false, error: 'User not found' };
+    delete store.users[userId];
+    saveStore();
+    return { ok: true };
   });
 
   ipcMain.handle('stats:sync', async (e, userId, stats) => {
-    return await supabaseService.syncUserStats(userId, stats);
+    if (!store.userStats) store.userStats = {};
+    store.userStats[userId] = { ...stats, updatedAt: Date.now() };
+    saveStore();
+    return { ok: true };
   });
 
   ipcMain.handle('stats:get', async (e, userId) => {
-    return await supabaseService.getUserStats(userId);
+    if (!store.userStats || !store.userStats[userId]) return { ok: true, stats: null };
+    return { ok: true, stats: store.userStats[userId] };
   });
 
   ipcMain.handle('comments:get', async () => {
-    return await supabaseService.getComments();
+    return store.comments || [];
   });
 
   ipcMain.handle('comments:add', async (e, userId, username, content) => {
-    return await supabaseService.addComment(userId, username, content);
+    if (!store.comments) store.comments = [];
+    const comment = { id: crypto.randomUUID(), userId, username: username || 'Anonymous', content, createdAt: Date.now() };
+    store.comments.unshift(comment);
+    if (store.comments.length > 500) store.comments = store.comments.slice(0, 500);
+    saveStore();
+    return { ok: true, comment };
   });
 
+  // Admin config from env only
+  const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  const MASTER_ADMIN_PASSWORD = process.env.ADMIN_MASTER_PASSWORD || '';
+
   ipcMain.handle('admin:verify', (e, email, password) => {
-    return supabaseService.verifyAdminCredentials(email, password);
+    if (!email || !password) return false;
+    const cleanEmail = email.trim().toLowerCase();
+    return ADMIN_EMAILS.includes(cleanEmail) && password === MASTER_ADMIN_PASSWORD;
   });
 
   ipcMain.handle('admin:getAnalytics', async (e, email, password) => {
-    return await supabaseService.getAdminAnalytics(email, password);
+    const cleanEmail = email.trim().toLowerCase();
+    if (!ADMIN_EMAILS.includes(cleanEmail) || password !== MASTER_ADMIN_PASSWORD) {
+      return { ok: false, error: 'Unauthorized' };
+    }
+    const users = store.users ? Object.values(store.users) : [];
+    const userStats = store.userStats || {};
+    return {
+      ok: true,
+      analytics: {
+        totalRegisteredUsers: users.length,
+        totalTimeSpentSeconds: Object.values(userStats).reduce((sum, s) => sum + (s.timeSpentSeconds || 0), 0),
+        totalPointsAccumulated: Object.values(userStats).reduce((sum, s) => sum + (s.points || 0), 0),
+        activeUserTrends: { todayActive: users.filter(u => new Date(u.createdAt).toDateString() === new Date().toDateString()).length, totalFlaggedUsers: 0 }
+      },
+      userTable: users.map(u => {
+        const stats = userStats[u.id] || {};
+        return { id: u.id, username: u.username || 'No Username', email: u.email, streaks: stats.streakCount || 0, points: stats.points || 0, timeSpentSeconds: stats.timeSpentSeconds || 0, formattedTimeSpent: formatTimeSpent(stats.timeSpentSeconds || 0), isFlagged: false, flagReason: null, createdAt: u.createdAt };
+      }),
+      leaderboard: users.map(u => {
+        const stats = userStats[u.id] || {};
+        return { username: u.username || 'Anonymous', streaks: stats.streakCount || 0, points: stats.points || 0, timeSpentSeconds: stats.timeSpentSeconds || 0, isFlagged: false };
+      }).sort((a, b) => b.points - a.points || b.streaks - a.streaks)
+    };
   });
 
   ipcMain.handle('leaderboard:getPublic', async () => {
-    return await supabaseService.getPublicLeaderboard();
+    const users = store.users ? Object.values(store.users) : [];
+    const userStats = store.userStats || {};
+    return users.map(u => {
+      const stats = userStats[u.id] || {};
+      return { username: u.username || 'Anonymous', streaks: stats.streakCount || 0, points: stats.points || 0, timeSpentSeconds: stats.timeSpentSeconds || 0, isFlagged: false };
+    }).sort((a, b) => b.points - a.points || b.streaks - a.streaks).slice(0, 50);
   });
 
   ipcMain.handle('feedback:email', () => {
-    shell.openExternal('mailto:explainertechoo369@gmail.com?subject=TechBlock%20App%20Feedback');
+    shell.openExternal('mailto:support@techblock.app?subject=TechBlock%20Feedback');
     return true;
   });
 }
