@@ -68,7 +68,7 @@ function createWindow() {
     minHeight: 650,
     title: 'TechBlock - Focus & Productivity',
     backgroundColor: '#0f1424',
-    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+    icon: path.join(process.resourcesPath || __dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
