@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const Filter = require('bad-words');
+const WebSocket = require('ws');
 const path = require('path');
 const fs = require('fs');
 
@@ -20,46 +20,37 @@ const ADMIN_EMAILS = [
 ];
 const MASTER_ADMIN_PASSWORD = 'Kartik@2008#';
 
-// Create Supabase Client
+// Create Supabase Client with WebSocket polyfill
 let supabase = null;
 try {
   supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
       persistSession: true,
       autoRefreshToken: true
+    },
+    realtime: {
+      transport: WebSocket
     }
   });
 } catch (e) {
   console.error('Supabase Client Init Error:', e);
 }
 
-// Setup Bad Words Filter with extended slang patterns
-const badWordsFilter = new Filter();
-const extraAbusiveWords = [
-  'mc', 'bc', 'chutiya', 'bhosdike', 'madarchod', 'behenchod', 'gand', 'gaand', 'harami',
-  'saala', 'kutta', 'kamine', 'bitch', 'asshole', 'bastard', 'dick', 'pussy', 'fuck', 'shit',
-  'cunt', 'whore', 'slut', 'nigger', 'faggot'
+// Custom profanity filter (no external deps - avoids ESM issues)
+const abusiveWords = [
+  'fuck', 'shit', 'bitch', 'bastard', 'asshole', 'dick', 'cunt', 'pussy',
+  'whore', 'slut', 'nigger', 'faggot', 'motherfucker', 'ass', 'damn',
+  // Hindi/Urdu slang
+  'mc', 'bc', 'chutiya', 'bhosdi', 'bhosdike', 'madarchod', 'behenchod',
+  'gand', 'gaand', 'harami', 'saala', 'kutta', 'kamine', 'lavde', 'lund',
+  'chod', 'chodna', 'chud', 'chutiya', 'randi', 'betichod', 'bahanchod'
 ];
-try {
-  badWordsFilter.addWords(...extraAbusiveWords);
-} catch (e) {
-  // Ignore duplicates
-}
+
+const abusiveRegex = new RegExp('\\b(' + abusiveWords.join('|') + ')\\b', 'gi');
 
 function containsAbusiveLanguage(text) {
   if (!text || typeof text !== 'string') return false;
-  const cleanedText = text.toLowerCase().trim();
-  
-  // 1. Check with bad-words npm package
-  try {
-    if (badWordsFilter.isProfane(cleanedText)) return true;
-  } catch (e) {}
-
-  // 2. Custom Regex matching for abusive slang
-  const slangRegex = /\b(fuck|shit|bitch|bastard|asshole|dick|cunt|pussy|chutiya|bhosdi|madarchod|behenchod|gaand|gand|mc|bc|harami|saala)\b/i;
-  if (slangRegex.test(cleanedText)) return true;
-
-  return false;
+  return abusiveRegex.test(text.toLowerCase().trim());
 }
 
 /* ---------------- Auth & User Profile Methods ---------------- */
