@@ -380,7 +380,6 @@ function renderStats() {
     };
   }
 }
-}
 
 function renderHomeActive() {
   const active = state.sites.filter(s => s.active).concat(
@@ -671,7 +670,7 @@ function renderNotes() {
       renderNotes();
     });
   });
-});
+}
 
 /* ---------------- Feedback & Community Comments ---------------- */
 function showFeedbackModal() {
