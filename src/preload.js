@@ -22,9 +22,6 @@ contextBridge.exposeInMainWorld('techblock', {
   addHistory: (entry) => ipcRenderer.invoke('history:add', entry),
   generateQR: (text) => ipcRenderer.invoke('qr:generate', text),
 
-  aiStatus: () => ipcRenderer.invoke('ai:status'),
-  aiAsk: (message) => ipcRenderer.invoke('ai:ask', message),
-
   // Auth, Onboarding & User
   login: (email, pass) => ipcRenderer.invoke('auth:login', email, pass),
   signUp: (email, pass, username) => ipcRenderer.invoke('auth:signup', email, pass, username),

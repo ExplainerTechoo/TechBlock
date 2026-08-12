@@ -358,27 +358,6 @@ function generateQR(text) {
   });
 }
 
-/* ---------------- AI Assistant (opencode) ---------------- */
-
-function checkOpenCode() {
-  return new Promise((resolve) => {
-    execFile('opencode', ['--version'], { timeout: 8000 }, (err, stdout) => {
-      resolve(err ? null : String(stdout || '').trim());
-    });
-  });
-}
-
-function askOpenCode(message) {
-  return new Promise((resolve) => {
-    execFile('opencode', ['run', '--format', 'text', message], { timeout: 120000, maxBuffer: 1024 * 1024 * 20 }, (err, stdout, stderr) => {
-      if (err) {
-        return resolve({ error: (stderr || err.message || 'opencode failed').trim() });
-      }
-      resolve({ text: String(stdout || '').trim() });
-    });
-  });
-}
-
 /* ---------------- IPC ---------------- */
 
 function registerIpc() {
@@ -482,9 +461,6 @@ function registerIpc() {
     try { return { ok: true, dataUrl: await generateQR(text) }; }
     catch (err) { return { ok: false, error: err.message }; }
   });
-
-  ipcMain.handle('ai:status', async () => ({ version: await checkOpenCode() }));
-  ipcMain.handle('ai:ask', async (e, message) => await askOpenCode(message));
 
   /* ---------------- Supabase Auth, Stats, Comments & Admin ---------------- */
   ipcMain.handle('auth:login', async (e, email, password) => {

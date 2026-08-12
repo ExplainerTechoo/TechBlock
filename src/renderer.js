@@ -138,7 +138,7 @@ function updateUserUI() {
     const dispName = state.currentUser.username || 'Logged In User';
     uName.textContent = dispName;
     uEmail.textContent = 'Synced & Saved';
-    if (uAuthBtn) uAuthBtn.innerHTML = '<span class="material-symbols-outlined">logout</span>';
+    if (uAuthBtn) uAuthBtn.innerHTML = '<span class="u-login-ico">🚪</span>';
     if (commentUsername) commentUsername.textContent = dispName;
 
     if (setAccStatus) setAccStatus.textContent = 'Authenticated (Synced to Supabase)';
@@ -149,7 +149,7 @@ function updateUserUI() {
   } else {
     uName.textContent = 'Guest User';
     uEmail.textContent = 'Sign in to sync';
-    if (uAuthBtn) uAuthBtn.innerHTML = '<span class="material-symbols-outlined">login</span>';
+    if (uAuthBtn) uAuthBtn.innerHTML = '<span class="u-login-ico">🔑</span>';
     if (commentUsername) commentUsername.textContent = 'Guest';
 
     if (setAccStatus) setAccStatus.textContent = 'Guest Mode (Local Device)';
@@ -641,7 +641,7 @@ async function loadCommentsFeed() {
   box.innerHTML = comments.map(c => `
     <div class="comment-card">
       <div class="comment-header">
-        <span class="comment-author"><span class="material-symbols-outlined">account_circle</span> ${esc(c.username)}</span>
+        <span class="comment-author"><span>👤</span> ${esc(c.username)}</span>
         <span class="comment-time">${fmtDate(new Date(c.created_at).getTime())}</span>
       </div>
       <div class="comment-body">${esc(c.content)}</div>
@@ -739,8 +739,8 @@ async function loadAdminDashboard() {
         <td>⏱ ${u.formattedTimeSpent}</td>
         <td>
           ${u.isFlagged
-            ? `<span class="flagged-badge"><span class="material-symbols-outlined">warning</span> Flagged (${esc(u.flagReason)})</span>`
-            : `<span class="clean-badge"><span class="material-symbols-outlined">check_circle</span> Verified Clean</span>`}
+            ? `<span class="flagged-badge">⚠️ Flagged (${esc(u.flagReason)})</span>`
+            : `<span class="clean-badge">✅ Verified Clean</span>`}
         </td>
       </tr>`).join('');
   }
@@ -786,53 +786,6 @@ $('clear-history').addEventListener('click', () => {
   state.history = [];
   saveState();
   renderHistory();
-});
-
-/* ---------------- AI Assistant ---------------- */
-async function initAI() {
-  const res = await api.aiStatus();
-  const dot = $('ai-dot');
-  const txt = $('ai-status-text');
-  if (res.version) {
-    dot.classList.add('online'); dot.classList.remove('offline');
-    txt.textContent = 'opencode connected · ' + res.version.trim();
-  } else {
-    dot.classList.add('offline'); dot.classList.remove('online');
-    txt.textContent = 'opencode CLI not found on this PC';
-  }
-}
-
-function addChatMsg(text, who) {
-  const box = $('ai-chat');
-  const div = document.createElement('div');
-  div.className = 'chat-msg ' + who;
-  div.innerHTML = `<div class="bubble">${esc(text)}</div>`;
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
-}
-
-async function sendAI() {
-  const input = $('ai-input');
-  const msg = input.value.trim();
-  if (!msg) return;
-  addChatMsg(msg, 'user');
-  input.value = '';
-  $('ai-send').disabled = true;
-  addChatMsg('Thinking...', 'ai');
-  const res = await api.aiAsk(msg);
-  const box = $('ai-chat');
-  box.lastElementChild.remove();
-  if (res.error) {
-    addChatMsg('⚠️ ' + res.error, 'error');
-  } else {
-    addChatMsg(res.text || '(no response)', 'ai');
-  }
-  $('ai-send').disabled = false;
-}
-
-$('ai-send').addEventListener('click', sendAI);
-$('ai-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAI(); }
 });
 
 /* ---------------- QR / Get App ---------------- */
@@ -895,7 +848,6 @@ setInterval(() => {
   await refreshSites();
   await loadApps();
   renderStats();
-  initAI();
   initQR();
   await initUserSession();
 })();
