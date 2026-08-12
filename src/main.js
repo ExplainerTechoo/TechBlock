@@ -271,7 +271,11 @@ function getActiveSiteBlocks() {
     store.blockedSites = still;
     saveStore();
   }
-  for (const b of expired) firewallUnblock(b.domain);
+  for (const b of expired) {
+    unblockHosts(b.domain);
+    firewallUnblock(b.domain);
+    flushDns();
+  }
   return active;
 }
 
