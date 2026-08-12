@@ -3,16 +3,19 @@ const $ = (id) => document.getElementById(id);
 
 /* ---------------- State ---------------- */
 let state = {
+  currentUser: null, // { id, email, username, role }
   sites: [],
   apps: [],
   blockedApps: [],
   notes: [],
   history: [],
   totalPoints: 0,
-  storageGranted: false
+  timeSpentSeconds: 0,
+  storageGranted: false,
+  adminAuth: null // { email, password }
 };
 
-const DOWNLOAD_URL = 'https://github.com/kartikchobdar775-stack/TechBlock';
+const DOWNLOAD_URL = 'https://github.com/ExplainerTechoo/TechBlock';
 
 /* ---------------- Navigation ---------------- */
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -20,7 +23,11 @@ document.querySelectorAll('.nav-item').forEach(btn => {
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-    $('page-' + btn.dataset.page).classList.add('active');
+    const targetPage = $('page-' + btn.dataset.page);
+    if (targetPage) targetPage.classList.add('active');
+
+    if (btn.dataset.page === 'comments') loadCommentsFeed();
+    if (btn.dataset.page === 'admin' && state.adminAuth) loadAdminDashboard();
   });
 });
 
@@ -44,11 +51,29 @@ $('perm-deny').addEventListener('click', () => {
   $('permission-overlay').classList.add('hidden');
 });
 
+/* ---------------- Toast Notification ---------------- */
+function showToast(message) {
+  const toast = $('toast-alert');
+  const msgEl = $('toast-message');
+  if (msgEl) msgEl.textContent = message;
+  if (toast) {
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 4000);
+  }
+}
+
 /* ---------------- Helpers ---------------- */
 function saveState() {
   api.storeSet('notes', state.notes);
   api.storeSet('history', state.history);
   api.storeSet('totalPoints', state.totalPoints);
+  api.storeSet('timeSpentSeconds', state.timeSpentSeconds);
+  if (state.currentUser) api.storeSet('currentUser', state.currentUser);
+  
+  // Trigger Supabase persistence sync if logged in
+  syncUserMetrics();
 }
 
 async function logHistory(ico, text, sub) {
@@ -72,7 +97,254 @@ function fmtRemain(ms) {
   return h > 0 ? `${h}h ${pad(m)}m ${pad(sec)}s` : `${m}m ${pad(sec)}s`;
 }
 
-/* ---------------- Home ---------------- */
+function esc(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ---------------- User Session & Onboarding ---------------- */
+async function initUserSession() {
+  const storedUser = await api.storeGet('currentUser');
+  if (storedUser && storedUser.id) {
+    state.currentUser = storedUser;
+    
+    // Fetch user stats from Supabase (Persistence Rule: Never wipe metrics on logout or start)
+    const remoteStats = await api.getStats(storedUser.id);
+    if (remoteStats) {
+      state.totalPoints = Math.max(state.totalPoints, remoteStats.points || 0);
+      state.timeSpentSeconds = Math.max(state.timeSpentSeconds, remoteStats.timeSpentSeconds || 0);
+    }
+    
+    // Check if username is set; if not, trigger onboarding username modal
+    if (!storedUser.username) {
+      showUsernameModal();
+    }
+  }
+  updateUserUI();
+}
+
+function updateUserUI() {
+  const uName = $('user-display-name');
+  const uEmail = $('user-display-email');
+  const uAuthBtn = $('user-auth-btn');
+  const commentUsername = $('comment-active-username');
+
+  const setAccStatus = $('settings-account-status');
+  const setUsername = $('settings-username');
+  const setEmail = $('settings-email');
+  const setLoginBtn = $('settings-login-btn');
+  const setLogoutBtn = $('settings-logout-btn');
+
+  if (state.currentUser) {
+    const dispName = state.currentUser.username || 'Logged In User';
+    uName.textContent = dispName;
+    uEmail.textContent = 'Synced & Saved';
+    if (uAuthBtn) uAuthBtn.innerHTML = '<span class="material-symbols-outlined">logout</span>';
+    if (commentUsername) commentUsername.textContent = dispName;
+
+    if (setAccStatus) setAccStatus.textContent = 'Authenticated (Synced to Supabase)';
+    if (setUsername) setUsername.textContent = state.currentUser.username || 'Not set';
+    if (setEmail) setEmail.textContent = 'Private (Hidden in public views)';
+    if (setLoginBtn) setLoginBtn.classList.add('hidden');
+    if (setLogoutBtn) setLogoutBtn.classList.remove('hidden');
+  } else {
+    uName.textContent = 'Guest User';
+    uEmail.textContent = 'Sign in to sync';
+    if (uAuthBtn) uAuthBtn.innerHTML = '<span class="material-symbols-outlined">login</span>';
+    if (commentUsername) commentUsername.textContent = 'Guest';
+
+    if (setAccStatus) setAccStatus.textContent = 'Guest Mode (Local Device)';
+    if (setUsername) setUsername.textContent = 'Not set';
+    if (setEmail) setEmail.textContent = 'Private';
+    if (setLoginBtn) setLoginBtn.classList.remove('hidden');
+    if (setLogoutBtn) setLogoutBtn.classList.add('hidden');
+  }
+}
+
+function showUsernameModal() {
+  $('username-modal').classList.remove('hidden');
+}
+
+$('username-submit-btn').addEventListener('click', async () => {
+  const input = $('username-input').value.trim();
+  const errDiv = $('username-error');
+  errDiv.classList.add('hidden');
+
+  if (!input || input.length < 3) {
+    errDiv.textContent = 'Username must be at least 3 characters long.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  if (state.currentUser) {
+    const res = await api.setUsername(state.currentUser.id, state.currentUser.email, input);
+    if (!res.ok) {
+      errDiv.textContent = res.error || 'Failed to set username.';
+      errDiv.classList.remove('hidden');
+      return;
+    }
+    state.currentUser.username = res.username;
+    api.storeSet('currentUser', state.currentUser);
+    updateUserUI();
+  }
+  $('username-modal').classList.add('hidden');
+});
+
+/* ---------------- Auth Modal Handlers ---------------- */
+let isSignUpMode = false;
+
+$('user-auth-btn').addEventListener('click', () => {
+  if (state.currentUser) {
+    logoutUser();
+  } else {
+    showAuthModal();
+  }
+});
+
+$('settings-login-btn').addEventListener('click', showAuthModal);
+$('settings-logout-btn').addEventListener('click', logoutUser);
+
+function showAuthModal() {
+  $('auth-modal').classList.remove('hidden');
+}
+
+$('auth-close-btn').addEventListener('click', () => {
+  $('auth-modal').classList.add('hidden');
+});
+
+$('auth-toggle-btn').addEventListener('click', () => {
+  isSignUpMode = !isSignUpMode;
+  $('auth-title').textContent = isSignUpMode ? 'Create New Account' : 'Sign In';
+  $('auth-submit-btn').textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
+  $('auth-toggle-btn').textContent = isSignUpMode ? 'Already have an account? Sign In' : 'Need an account? Sign Up';
+  if (isSignUpMode) {
+    $('auth-username').classList.remove('hidden');
+  } else {
+    $('auth-username').classList.add('hidden');
+  }
+  $('auth-error').classList.add('hidden');
+});
+
+$('auth-submit-btn').addEventListener('click', async () => {
+  const email = $('auth-email').value.trim();
+  const password = $('auth-password').value.trim();
+  const username = $('auth-username').value.trim();
+  const errDiv = $('auth-error');
+  errDiv.classList.add('hidden');
+
+  if (!email || !password) {
+    errDiv.textContent = 'Please provide both email and password.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  if (isSignUpMode && !username) {
+    errDiv.textContent = 'Please choose a unique username for Sign Up.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  let res;
+  if (isSignUpMode) {
+    res = await api.signUp(email, password, username);
+  } else {
+    res = await api.login(email, password);
+  }
+
+  if (!res.ok) {
+    errDiv.textContent = res.error || 'Authentication failed.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  state.currentUser = res.user;
+  api.storeSet('currentUser', state.currentUser);
+  
+  // Sync metrics from Supabase
+  const remoteStats = await api.getStats(res.user.id);
+  if (remoteStats) {
+    state.totalPoints = Math.max(state.totalPoints, remoteStats.points || 0);
+    state.timeSpentSeconds = Math.max(state.timeSpentSeconds, remoteStats.timeSpentSeconds || 0);
+  }
+
+  updateUserUI();
+  $('auth-modal').classList.add('hidden');
+  logHistory('🔑', `Signed in as ${res.user.username || res.user.email}`, 'Session active');
+});
+
+function logoutUser() {
+  // Persistence Rule: Do NOT wipe local or remote metrics on logout!
+  state.currentUser = null;
+  api.storeSet('currentUser', null);
+  updateUserUI();
+  logHistory('🚪', 'Logged out', 'Local session closed');
+}
+
+/* ---------------- Double Confirmation Account Deletion ---------------- */
+$('settings-delete-account-btn').addEventListener('click', () => {
+  if (!state.currentUser) {
+    alert('Please sign in to manage account deletion.');
+    return;
+  }
+  $('delete-modal-step1').classList.remove('hidden');
+});
+
+$('delete-step1-cancel').addEventListener('click', () => {
+  $('delete-modal-step1').classList.add('hidden');
+});
+
+$('delete-step1-continue').addEventListener('click', () => {
+  $('delete-modal-step1').classList.add('hidden');
+  $('delete-modal-step2').classList.remove('hidden');
+});
+
+$('delete-step2-cancel').addEventListener('click', () => {
+  $('delete-modal-step2').classList.add('hidden');
+});
+
+$('delete-step2-confirm').addEventListener('click', async () => {
+  if (!state.currentUser) return;
+  const userId = state.currentUser.id;
+  const res = await api.deleteAccount(userId);
+  $('delete-modal-step2').classList.add('hidden');
+
+  if (res.ok) {
+    alert('Account deleted successfully. All profile metrics purged cleanly.');
+    state.currentUser = null;
+    state.totalPoints = 0;
+    state.notes = [];
+    state.history = [];
+    api.storeSet('currentUser', null);
+    saveState();
+    updateUserUI();
+    renderTasks();
+    renderHistory();
+    renderStats();
+  } else {
+    alert('Could not delete account: ' + (res.error || 'Server error'));
+  }
+});
+
+/* ---------------- State Syncing to Supabase ---------------- */
+async function syncUserMetrics() {
+  if (!state.currentUser) return;
+  const statsPayload = {
+    streakCount: calcStreak(),
+    points: state.totalPoints,
+    timeSpentSeconds: state.timeSpentSeconds
+  };
+  await api.syncStats(state.currentUser.id, statsPayload);
+}
+
+// Automatically increment usage time and sync every 15 seconds
+setInterval(() => {
+  state.timeSpentSeconds += 1;
+}, 1000);
+
+setInterval(() => {
+  saveState();
+}, 15000);
+
+/* ---------------- Home & Stats ---------------- */
 function renderStats() {
   const doneCount = state.notes.filter(n => n.done).length;
   $('stat-sites').textContent = state.sites.filter(s => s.active).length;
@@ -100,10 +372,6 @@ function renderHomeActive() {
     </div>`).join('');
 }
 
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
 /* ---------------- Website Blocker ---------------- */
 async function blockSite(input, minutes) {
   if (!input.trim()) return { ok: false, error: 'Please enter a site or link.' };
@@ -116,20 +384,13 @@ async function blockSite(input, minutes) {
   await logHistory('🌐', `Blocked ${res.domain}`, `for ${minutes} min · unlocks ${fmtDate(Date.now() + minutes * 60000)}`);
   await refreshSites();
   const ipNote = res.ips && res.ips.length ? ` (blocked IPs: ${res.ips.join(', ')})` : '';
-  showTip('🔒 Site blocked!' + ipNote + '\n\nIf it still opens in a browser, restart the browser once (or close & reopen the tab) so its DNS cache clears.\n\nIn Chrome/Edge/Firefox, turn OFF "Secure DNS / DNS-over-HTTPS" (Settings → Privacy → Security) so it respects the block. TechBlock also added a Firewall rule, so the site is now blocked even with Secure DNS on.');
+  showTip('🔒 Site blocked!' + ipNote + '\n\nIf it still opens in a browser, restart the browser once to clear DNS cache.');
   return res;
 }
 
 function showTip(message) {
   const tip = $('app-tip');
   if (tip) { tip.textContent = message; tip.style.display = 'block'; }
-}
-
-async function unblockSite(domain) {
-  const res = await api.unblockSite(domain);
-  await logHistory('🔓', `Unblocked ${domain}`, `timer finished · ${fmtDate(Date.now())}`);
-  await refreshSites();
-  return res;
 }
 
 async function refreshSites() {
@@ -151,14 +412,9 @@ function renderSites() {
       </div>
       <div class="b-right">
         <span class="timer-badge">BLOCKED</span>
-        <button class="btn btn-ghost" data-unblock="${s.domain}" disabled title="Cannot unblock before timer ends">Unblock</button>
+        <button class="btn btn-ghost" data-unblock="${esc(s.domain)}" disabled title="Cannot unblock before timer ends">Unblock</button>
       </div>
     </div>`).join('');
-
-  box.querySelectorAll('[data-unblock]').forEach(b => {
-    b.disabled = true;
-    b.title = 'Unblock is locked until the timer finishes.';
-  });
 }
 
 $('site-block-btn').addEventListener('click', async () => {
@@ -176,8 +432,6 @@ $('quick-block-btn').addEventListener('click', async () => {
   if (res.ok) $('quick-url').value = '';
 });
 
-$('site-url').addEventListener('keydown', e => { if (e.key === 'Enter') $('site-block-btn').click(); });
-
 /* ---------------- App Blocker ---------------- */
 async function loadApps() {
   $('apps-list').innerHTML = '<p class="muted">Loading installed apps...</p>';
@@ -189,7 +443,7 @@ async function loadApps() {
   renderStats();
 }
 
-const APP_ICONS = { chrome: '🟢', firefox: '🦊', edge: '🌀', 'msedge': '🌀', 'msiexec': '⚙️', code: '💻', 'code.exe': '💻', discord: '💬', spotify: '🎵', zoom: '🎥', whatsapp: '💚', telegram: '✈️', slack: '💼', steam: '🎮', epic: '🎮', gamebar: '🎮', excel: '📊', winword: '📄', powerpnt: '📊', onenote: '📝', teams: '💼', outlook: '📧', photoshop: '🎨', vlc: '📺', obs: '🎬', capcut: '🎬', netflix: '🎬' };
+const APP_ICONS = { chrome: '🟢', firefox: '🦊', edge: '🌀', code: '💻', discord: '💬', spotify: '🎵', zoom: '🎥', whatsapp: '💚', steam: '🎮' };
 
 function iconFor(exe) {
   for (const k in APP_ICONS) if (exe.includes(k)) return APP_ICONS[k];
@@ -219,7 +473,7 @@ function renderApps() {
   }).join('');
 
   box.querySelectorAll('input[data-toggle-app]').forEach(toggle => {
-    toggle.addEventListener('change', async (e) => {
+    toggle.addEventListener('change', async () => {
       const item = toggle.closest('.app-item');
       const app = state.apps.find(a => a.exeName === item.dataset.exe);
       const minutes = parseInt(item.querySelector('.a-timer-input').value, 10);
@@ -350,7 +604,167 @@ $('task-add-btn').addEventListener('click', () => {
   renderTasks();
 });
 
-$('task-time').addEventListener('keydown', e => { if (e.key === 'Enter') $('task-add-btn').click(); });
+/* ---------------- Feedback & Community Comments ---------------- */
+function showFeedbackModal() {
+  $('feedback-choice-modal').classList.remove('hidden');
+}
+
+$('feedback-close-btn').addEventListener('click', () => {
+  $('feedback-choice-modal').classList.add('hidden');
+});
+
+$('trigger-feedback-modal-btn').addEventListener('click', showFeedbackModal);
+$('about-feedback-btn').addEventListener('click', showFeedbackModal);
+
+$('feedback-option-email').addEventListener('click', () => {
+  $('feedback-choice-modal').classList.add('hidden');
+  api.openEmailClient();
+});
+
+$('feedback-option-comment').addEventListener('click', () => {
+  $('feedback-choice-modal').classList.add('hidden');
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-page="comments"]').classList.add('active');
+  $('page-comments').classList.add('active');
+  loadCommentsFeed();
+});
+
+async function loadCommentsFeed() {
+  const box = $('comments-feed');
+  box.innerHTML = '<p class="muted">Loading community comments...</p>';
+  const comments = await api.getComments();
+  if (!comments || !comments.length) {
+    box.innerHTML = '<p class="muted">No public comments yet. Be the first to share your thoughts!</p>';
+    return;
+  }
+  box.innerHTML = comments.map(c => `
+    <div class="comment-card">
+      <div class="comment-header">
+        <span class="comment-author"><span class="material-symbols-outlined">account_circle</span> ${esc(c.username)}</span>
+        <span class="comment-time">${fmtDate(new Date(c.created_at).getTime())}</span>
+      </div>
+      <div class="comment-body">${esc(c.content)}</div>
+    </div>`).join('');
+}
+
+$('refresh-comments-btn').addEventListener('click', loadCommentsFeed);
+
+$('comment-post-btn').addEventListener('click', async () => {
+  const content = $('comment-input').value.trim();
+  if (!content) { alert('Please enter your comment text.'); return; }
+
+  const userId = state.currentUser ? state.currentUser.id : null;
+  const username = state.currentUser ? (state.currentUser.username || 'Anonymous') : 'Guest User';
+
+  const res = await api.addComment(userId, username, content);
+
+  if (!res.ok) {
+    if (res.abusive) {
+      // Abusive language alert toast
+      showToast('Abusive language is strictly prohibited.');
+    } else {
+      alert('Could not post comment: ' + (res.error || 'Server error'));
+    }
+    return;
+  }
+
+  $('comment-input').value = '';
+  await loadCommentsFeed();
+});
+
+/* ---------------- Strict Admin Dashboard (`/admin`) ---------------- */
+$('admin-login-btn').addEventListener('click', async () => {
+  const email = $('admin-email-input').value.trim();
+  const password = $('admin-password-input').value.trim();
+  const errDiv = $('admin-auth-error');
+  errDiv.classList.add('hidden');
+
+  if (!email || !password) {
+    errDiv.textContent = 'Please provide admin email and master password.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  const isValid = await api.verifyAdmin(email, password);
+  if (!isValid) {
+    errDiv.textContent = 'Unauthorized: Invalid Admin Email or Master Password.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  state.adminAuth = { email, password };
+  $('admin-active-email').textContent = email;
+  $('admin-gate-panel').classList.add('hidden');
+  $('admin-dashboard-content').classList.remove('hidden');
+  await loadAdminDashboard();
+});
+
+$('admin-logout-btn').addEventListener('click', () => {
+  state.adminAuth = null;
+  $('admin-gate-panel').classList.remove('hidden');
+  $('admin-dashboard-content').classList.add('hidden');
+  $('admin-email-input').value = '';
+  $('admin-password-input').value = '';
+});
+
+async function loadAdminDashboard() {
+  if (!state.adminAuth) return;
+  const res = await api.getAdminAnalytics(state.adminAuth.email, state.adminAuth.password);
+
+  if (!res.ok) {
+    alert('Admin Error: ' + res.error);
+    return;
+  }
+
+  const { analytics, userTable, leaderboard } = res;
+
+  // 1. Analytics Cards
+  $('admin-total-users').textContent = analytics.totalRegisteredUsers;
+  $('admin-total-time').textContent = analytics.formattedTotalTimeSpent;
+  $('admin-total-pts').textContent = analytics.totalPointsAccumulated;
+  $('admin-flagged-count').textContent = analytics.activeUserTrends.totalFlaggedUsers;
+
+  // 2. User Table (Email visible ONLY to Admin)
+  const tBody = $('admin-user-table-body');
+  if (!userTable || !userTable.length) {
+    tBody.innerHTML = '<tr><td colspan="6" class="muted text-center">No registered users found.</td></tr>';
+  } else {
+    tBody.innerHTML = userTable.map(u => `
+      <tr>
+        <td><b>${esc(u.username)}</b></td>
+        <td><code>${esc(u.email)}</code></td>
+        <td>🔥 ${u.streaks} days</td>
+        <td>⭐ ${u.points} pts</td>
+        <td>⏱ ${u.formattedTimeSpent}</td>
+        <td>
+          ${u.isFlagged
+            ? `<span class="flagged-badge"><span class="material-symbols-outlined">warning</span> Flagged (${esc(u.flagReason)})</span>`
+            : `<span class="clean-badge"><span class="material-symbols-outlined">check_circle</span> Verified Clean</span>`}
+        </td>
+      </tr>`).join('');
+  }
+
+  // 3. Leaderboard & Anti-Cheat Engine
+  const lBody = $('admin-leaderboard-body');
+  if (!leaderboard || !leaderboard.length) {
+    lBody.innerHTML = '<tr><td colspan="6" class="muted text-center">No rankings data available.</td></tr>';
+  } else {
+    lBody.innerHTML = leaderboard.map((l, idx) => `
+      <tr>
+        <td><b>#${idx + 1}</b></td>
+        <td>${esc(l.username)}</td>
+        <td>🔥 ${l.streaks} days</td>
+        <td>⭐ ${l.points} pts</td>
+        <td>⏱ ${Math.floor(l.timeSpentSeconds / 60)}m</td>
+        <td>
+          ${l.isFlagged
+            ? `<span class="flagged-badge">Anomaly Flagged</span>`
+            : `<span class="clean-badge">Valid Pattern</span>`}
+        </td>
+      </tr>`).join('');
+  }
+}
 
 /* ---------------- History ---------------- */
 function renderHistory() {
@@ -385,7 +799,6 @@ async function initAI() {
   } else {
     dot.classList.add('offline'); dot.classList.remove('online');
     txt.textContent = 'opencode CLI not found on this PC';
-    addChatMsg('To enable TechBlock AI, install opencode in a terminal and restart this app:\n\nnpm install -g opencode-ai\n\n(Windows 10 build 1803+ required. Then ask me to block any website or app!)', 'ai');
   }
 }
 
@@ -411,7 +824,6 @@ async function sendAI() {
   box.lastElementChild.remove();
   if (res.error) {
     addChatMsg('⚠️ ' + res.error, 'error');
-    addChatMsg('Tip: opencode AI needs to be installed on this PC. Try running "npm install -g opencode-ai" in terminal.', 'ai');
   } else {
     addChatMsg(res.text || '(no response)', 'ai');
   }
@@ -449,12 +861,10 @@ setInterval(() => {
   });
 
   // auto-unblock expired sites/apps
-  let changed = false;
   const before = state.sites.length + state.blockedApps.length;
   state.sites = state.sites.filter(s => (s.until || 0) > now);
   state.blockedApps = state.blockedApps.filter(a => (a.until || 0) > now);
   if (before !== state.sites.length + state.blockedApps.length) {
-    changed = true;
     api.listSites().then(live => {
       state.sites = live;
       renderSites(); renderHomeActive(); renderStats();
@@ -469,12 +879,17 @@ setInterval(() => {
 /* ---------------- Boot ---------------- */
 (async function boot() {
   await initStoragePermission();
-  const [notes, history, totalPoints] = await Promise.all([
-    api.storeGet('notes'), api.storeGet('history'), api.storeGet('totalPoints')
+  const [notes, history, totalPoints, timeSpentSeconds] = await Promise.all([
+    api.storeGet('notes'),
+    api.storeGet('history'),
+    api.storeGet('totalPoints'),
+    api.storeGet('timeSpentSeconds')
   ]);
   state.notes = notes || [];
   state.history = history || [];
   state.totalPoints = totalPoints || 0;
+  state.timeSpentSeconds = timeSpentSeconds || 0;
+
   renderTasks();
   renderHistory();
   await refreshSites();
@@ -482,4 +897,5 @@ setInterval(() => {
   renderStats();
   initAI();
   initQR();
+  await initUserSession();
 })();

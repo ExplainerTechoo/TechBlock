@@ -23,5 +23,27 @@ contextBridge.exposeInMainWorld('techblock', {
   generateQR: (text) => ipcRenderer.invoke('qr:generate', text),
 
   aiStatus: () => ipcRenderer.invoke('ai:status'),
-  aiAsk: (message) => ipcRenderer.invoke('ai:ask', message)
+  aiAsk: (message) => ipcRenderer.invoke('ai:ask', message),
+
+  // Auth, Onboarding & User
+  login: (email, pass) => ipcRenderer.invoke('auth:login', email, pass),
+  signUp: (email, pass, username) => ipcRenderer.invoke('auth:signup', email, pass, username),
+  setUsername: (userId, email, username) => ipcRenderer.invoke('auth:setUsername', userId, email, username),
+  deleteAccount: (userId) => ipcRenderer.invoke('auth:deleteAccount', userId),
+
+  // State Persistence & Stats
+  syncStats: (userId, stats) => ipcRenderer.invoke('stats:sync', userId, stats),
+  getStats: (userId) => ipcRenderer.invoke('stats:get', userId),
+
+  // Comments
+  getComments: () => ipcRenderer.invoke('comments:get'),
+  addComment: (userId, username, content) => ipcRenderer.invoke('comments:add', userId, username, content),
+
+  // Admin & Analytics
+  verifyAdmin: (email, pass) => ipcRenderer.invoke('admin:verify', email, pass),
+  getAdminAnalytics: (email, pass) => ipcRenderer.invoke('admin:getAnalytics', email, pass),
+  getPublicLeaderboard: () => ipcRenderer.invoke('leaderboard:getPublic'),
+
+  // Feedback Mail
+  openEmailClient: () => ipcRenderer.invoke('feedback:email')
 });

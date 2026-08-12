@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { exec, execFile, execFileSync, spawn } = require('child_process');
 const QRCode = require('qrcode');
+const supabaseService = require('./supabase');
 
 const HOSTS_PATH = 'C:\\Windows\\System32\\drivers\\etc\\hosts';
 const DATA_DIR = path.join(app.getPath('userData'), 'data');
@@ -307,7 +308,7 @@ function getActiveAppBlocks() {
 
 /* ---------------- QR Code ---------------- */
 
-const DOWNLOAD_URL = 'https://github.com/kartikchobdar775-stack/TechBlock';
+const DOWNLOAD_URL = 'https://github.com/ExplainerTechoo/TechBlock';
 
 function generateQR(text) {
   return new Promise((resolve, reject) => {
@@ -444,6 +445,56 @@ function registerIpc() {
 
   ipcMain.handle('ai:status', async () => ({ version: await checkOpenCode() }));
   ipcMain.handle('ai:ask', async (e, message) => await askOpenCode(message));
+
+  /* ---------------- Supabase Auth, Stats, Comments & Admin ---------------- */
+  ipcMain.handle('auth:login', async (e, email, password) => {
+    return await supabaseService.loginUser(email, password);
+  });
+
+  ipcMain.handle('auth:signup', async (e, email, password, username) => {
+    return await supabaseService.signUpUser(email, password, username);
+  });
+
+  ipcMain.handle('auth:setUsername', async (e, userId, email, username) => {
+    return await supabaseService.setUsername(userId, email, username);
+  });
+
+  ipcMain.handle('auth:deleteAccount', async (e, userId) => {
+    return await supabaseService.deleteUserAccount(userId);
+  });
+
+  ipcMain.handle('stats:sync', async (e, userId, stats) => {
+    return await supabaseService.syncUserStats(userId, stats);
+  });
+
+  ipcMain.handle('stats:get', async (e, userId) => {
+    return await supabaseService.getUserStats(userId);
+  });
+
+  ipcMain.handle('comments:get', async () => {
+    return await supabaseService.getComments();
+  });
+
+  ipcMain.handle('comments:add', async (e, userId, username, content) => {
+    return await supabaseService.addComment(userId, username, content);
+  });
+
+  ipcMain.handle('admin:verify', (e, email, password) => {
+    return supabaseService.verifyAdminCredentials(email, password);
+  });
+
+  ipcMain.handle('admin:getAnalytics', async (e, email, password) => {
+    return await supabaseService.getAdminAnalytics(email, password);
+  });
+
+  ipcMain.handle('leaderboard:getPublic', async () => {
+    return await supabaseService.getPublicLeaderboard();
+  });
+
+  ipcMain.handle('feedback:email', () => {
+    shell.openExternal('mailto:explainertechoo369@gmail.com?subject=TechBlock%20App%20Feedback');
+    return true;
+  });
 }
 
 /* ---------------- Startup ---------------- */
