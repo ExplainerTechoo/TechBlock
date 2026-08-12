@@ -42,5 +42,11 @@ contextBridge.exposeInMainWorld('techblock', {
   getPublicLeaderboard: () => ipcRenderer.invoke('leaderboard:getPublic'),
 
   // Feedback Mail
-  openEmailClient: () => ipcRenderer.invoke('feedback:email')
+  openEmailClient: () => ipcRenderer.invoke('feedback:email'),
+
+  // Auto-updater events
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (e, info) => callback(info)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (e, info) => callback(info)),
+  onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (e, info) => callback(info)),
+  quitAndInstall: () => ipcRenderer.send('quit-and-install')
 });

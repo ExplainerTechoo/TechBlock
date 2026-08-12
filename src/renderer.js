@@ -919,4 +919,21 @@ setInterval(() => {
   renderStats();
   initQR();
   await initUserSession();
+
+  // Auto-update UI
+  api.onUpdateAvailable((info) => {
+    if (confirm(`New version ${info.version} available! Download now?`)) {
+      // Download starts automatically
+    }
+  });
+
+  api.onDownloadProgress((progress) => {
+    console.log(`Update download: ${Math.round(progress.percent || 0)}%`);
+  });
+
+  api.onUpdateDownloaded((info) => {
+    if (confirm(`Update ${info.version} downloaded! Restart now to install?`)) {
+      api.quitAndInstall();
+    }
+  });
 })();

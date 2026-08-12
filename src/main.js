@@ -622,6 +622,10 @@ function registerIpc() {
     resetStore();
     return true;
   });
+
+  ipcMain.on('quit-and-install', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
 }
 
 /* ---------------- Startup ---------------- */
