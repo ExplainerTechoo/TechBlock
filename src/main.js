@@ -119,7 +119,6 @@ function setupAutoUpdater() {
     autoUpdater.checkForUpdatesAndNotify();
   }, 4 * 60 * 60 * 1000);
 }
-}
 
 /* ---------------- Website blocking via HOSTS file ---------------- */
 
