@@ -355,6 +355,31 @@ function renderStats() {
   $('notes-points').textContent = state.totalPoints;
   $('sidebar-streak').textContent = calcStreak();
   $('notes-streak').textContent = calcStreak();
+  
+  // Show reset button
+  const resetBtn = $('reset-data-btn');
+  if (resetBtn) {
+    resetBtn.style.display = 'inline-block';
+    resetBtn.onclick = () => {
+      if (confirm('This will DELETE ALL user data: notes, tasks, history, blocked sites/apps, stats, comments. This cannot be undone. Are you sure?')) {
+        api.storeSet('notes', []);
+        api.storeSet('history', []);
+        api.storeSet('totalPoints', 0);
+        api.storeSet('timeSpentSeconds', 0);
+        api.storeSet('currentUser', null);
+        state.notes = [];
+        state.history = [];
+        state.totalPoints = 0;
+        state.timeSpentSeconds = 0;
+        state.currentUser = null;
+        $('notes-points').textContent = '0';
+        $('sidebar-points').textContent = '0';
+        renderStats();
+        showTip('🗑 All data reset. TechBlock feels fresh like a new account.');
+      }
+    };
+  }
+}
 }
 
 function renderHomeActive() {
@@ -602,6 +627,50 @@ $('task-add-btn').addEventListener('click', () => {
   $('task-time').value = '';
   saveState();
   renderTasks();
+});
+
+// ---------------- Notes -----------------
+$('note-add-btn').addEventListener('click', () => {
+  const text = $('note-text').value.trim();
+  if (!text) { alert('Write your note first.'); return; }
+  state.notes.push({ id: Date.now(), text, done: false, doneAt: null });
+  logHistory('📝', `Added note "${text}"`, '+10 pts');
+  $('note-text').value = '';
+  saveState();
+  renderNotes();
+});
+
+function renderNotes() {
+  const box = $('note-list');
+  if (!state.notes.length) { box.innerHTML = '<p class="muted">No notes yet. Add your first note above!</p>'; return; }
+  box.innerHTML = state.notes.slice().reverse().map(n => {
+    const completed = n.done ? `Done ${fmtDate(n.doneAt)} · +10 pts` : `Started ${fmtDate(n.startedAt)}`;
+    return `
+    <div class="task-card ${n.done ? 'completed' : ''}" data-id="${n.id}">
+      <div class="task-body">
+        <div class="t-text">${esc(n.text)}</div>
+        <div class="t-meta">${completed}</div>
+      </div>
+      ${n.done ? `<div class="task-points">+10 pts</div>` : ''}
+      <button class="task-del" title="Delete note">🗑</button>
+    </div>`;
+  }).join('');
+
+  box.querySelectorAll('.task-circle').forEach(c => {
+    // Note: task-circle handlers for tasks, notes use task-del for delete
+  });
+
+  box.querySelectorAll('.task-del').forEach(c => {
+    c.addEventListener('click', () => {
+      const card = c.closest('.task-card');
+      const note = state.notes.find(n => String(n.id) === card.dataset.id);
+      if (!note) return;
+      state.notes = state.notes.filter(n => n.id !== note.id);
+      logHistory('📝', `Deleted note "${note.text}"`);
+      saveState();
+      renderNotes();
+    });
+  });
 });
 
 /* ---------------- Feedback & Community Comments ---------------- */

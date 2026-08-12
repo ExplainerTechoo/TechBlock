@@ -70,6 +70,25 @@ function saveStore() {
   }
 }
 
+function resetStore() {
+  ensureDataDir();
+  try {
+    store.settings = {};
+    store.blockedSites = [];
+    store.blockedApps = [];
+    store.history = [];
+    store.notes = [];
+    store.leaderboard = [];
+    store.totalPoints = 0;
+    store.users = {};
+    store.userStats = {};
+    store.comments = [];
+    saveStore();
+  } catch (e) {
+    console.error('Failed to reset store:', e);
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -334,15 +353,23 @@ function expireAppBlocks() {
 }
 
 let watcher = null;
+let watcherRunning = false;
 function ensureWatcher() {
-  if (watcher) return;
+  if (watcherRunning) return;
+  watcherRunning = true;
   watcher = setInterval(() => {
     expireAppBlocks();
     const now = Date.now();
+    let expired = false;
     for (const a of store.blockedApps) {
-      if ((a.until || 0) > now && a.exeName) killProcess(a.exeName);
+      if ((a.until || 0) <= now) { expired = true; break; }
     }
-  }, 1500);
+    if (expired) {
+      for (const a of store.blockedApps) {
+        if ((a.until || 0) <= now && a.exeName) killProcess(a.exeName);
+      }
+    }
+  }, 3000);
 }
 
 function getActiveAppBlocks() {
@@ -584,6 +611,11 @@ function registerIpc() {
 
   ipcMain.handle('feedback:email', () => {
     shell.openExternal('mailto:support@techblock.app?subject=TechBlock%20Feedback');
+    return true;
+  });
+
+  ipcMain.handle('store:reset', () => {
+    resetStore();
     return true;
   });
 }
