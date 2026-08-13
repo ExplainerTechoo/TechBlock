@@ -2,7 +2,7 @@
 
 A Windows desktop application for website/app blocking, task management, and productivity tracking.
 
-## Features
+ Features
 
 - 🔒 **Website Blocker** - Block distracting websites via HOSTS file & firewall
 - 📱 **App Blocker** - Block desktop applications by executable
