@@ -57,10 +57,6 @@ Create a `.env` file (see `.env.example`):
 SUPABASE_URL=your-supabase-url
 SUPABASE_ANON_KEY=your-supabase-anon-key
 
-# Admin access (optional)
-ADMIN_EMAILS=admin@example.com
-ADMIN_MASTER_PASSWORD=your-password
-
 # Skip admin elevation for testing
 TECHBLOCK_NO_ELEVATE=1
 ```
