@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="TechBlock Secure Storage Gateway & Security Management Dashboard">
+  <title>TechBlock - Secure Storage Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>TechBlock</h1>
+          <span class="subtitle">Secure Storage Gateway</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div id="authStatusBadge" class="badge badge-warning">Guest (Not Authenticated)</div>
+        <button id="logoutBtn" class="btn btn-secondary btn-sm hidden">Logout</button>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="auth">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Authentication
+      </button>
+      <button class="tab-btn" data-tab="storage">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        Block Gateway
+      </button>
+      <button class="tab-btn" data-tab="security">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Security Audit
+      </button>
+      <button class="tab-btn" data-tab="health">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        System Health
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+      
+      <!-- Tab 1: Authentication -->
+      <section id="tab-auth" class="tab-content active">
+        <div class="grid grid-2">
+          <!-- Register Card -->
+          <div class="card glass">
+            <h2>Create Account</h2>
+            <p class="card-desc">Register with bcrypt-hashed credentials and JWT session generation.</p>
+            <form id="registerForm">
+              <div class="form-group">
+                <label for="regUsername">Username</label>
+                <input type="text" id="regUsername" placeholder="e.g. alex_tech" required>
+              </div>
+              <div class="form-group">
+                <label for="regEmail">Email Address</label>
+                <input type="email" id="regEmail" placeholder="alex@example.com" required>
+              </div>
+              <div class="form-group">
+                <label for="regPassword">Password (Min 6 chars)</label>
+                <input type="password" id="regPassword" placeholder="••••••••" required>
+              </div>
+              <button type="submit" class="btn btn-primary w-full">Register Account</button>
+            </form>
+          </div>
+
+          <!-- Login Card -->
+          <div class="card glass">
+            <h2>Secure Login</h2>
+            <p class="card-desc">Authenticate and receive an encrypted JWT authorization token.</p>
+            <form id="loginForm">
+              <div class="form-group">
+                <label for="loginEmail">Email Address</label>
+                <input type="email" id="loginEmail" placeholder="alex@example.com" required>
+              </div>
+              <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" required>
+              </div>
+              <button type="submit" class="btn btn-primary w-full">Authenticate & Login</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Active Session Info Card -->
+        <div class="card glass mt-6">
+          <div class="card-header">
+            <h3>Active Session State</h3>
+            <button id="refreshProfileBtn" class="btn btn-sm btn-secondary">Refresh Profile</button>
+          </div>
+          <pre id="sessionOutput" class="code-block">Log in to view token & sanitized profile object...</pre>
+        </div>
+      </section>
+
+      <!-- Tab 2: Storage Gateway -->
+      <section id="tab-storage" class="tab-content">
+        <div class="grid grid-2">
+          <!-- Create Storage Block Card -->
+          <div class="card glass">
+            <h2>Upload Storage Block</h2>
+            <p class="card-desc">Store encrypted or raw block payloads with automatic SHA-256 integrity verification.</p>
+            <form id="createBlockForm">
+              <div class="form-group">
+                <label for="blockTitle">Block Title</label>
+                <input type="text" id="blockTitle" placeholder="e.g. Encrypted Database Backup v1" required>
+              </div>
+              <div class="form-group">
+                <label for="blockData">Payload Data</label>
+                <textarea id="blockData" rows="4" placeholder="Enter payload string, JSON object, or block content..." required></textarea>
+              </div>
+              <div class="form-group">
+                <label for="blockTags">Tags (Comma-separated)</label>
+                <input type="text" id="blockTags" placeholder="backup, production, secret">
+              </div>
+              <button type="submit" class="btn btn-primary w-full">Store Block in Gateway</button>
+            </form>
+          </div>
+
+          <!-- Filter & Search Storage Blocks -->
+          <div class="card glass">
+            <div class="card-header">
+              <h2>My Storage Blocks</h2>
+              <button id="fetchBlocksBtn" class="btn btn-sm btn-secondary">Refresh List</button>
+            </div>
+            <div class="search-bar">
+              <input type="text" id="searchInput" placeholder="Search by title, tag, or payload...">
+              <button id="searchBtn" class="btn btn-sm btn-primary">Search</button>
+            </div>
+            <div id="blocksList" class="blocks-container mt-4">
+              <div class="placeholder-text">Click "Refresh List" or store a block to view data here.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 3: Security Audit -->
+      <section id="tab-security" class="tab-content">
+        <div class="grid grid-2">
+          <!-- Header Inspector -->
+          <div class="card glass">
+            <h2>Security Headers Inspector</h2>
+            <p class="card-desc">Verify active Helmet HTTP protection headers on live API responses.</p>
+            <button id="inspectHeadersBtn" class="btn btn-primary mb-4">Run Header Audit</button>
+            <div id="headersOutput" class="code-block">Click button above to audit security headers...</div>
+          </div>
+
+          <!-- Rate Limiting Auditor -->
+          <div class="card glass">
+            <h2>Rate Limiting Tester</h2>
+            <p class="card-desc">Simulate rapid requests to verify brute-force defense controls.</p>
+            <div class="button-row mb-4">
+              <button id="testRateLimitBtn" class="btn btn-secondary">Send 5 Burst Requests</button>
+            </div>
+            <div id="rateLimitOutput" class="code-block">Rate limit audit results will appear here...</div>
+          </div>
+        </div>
+
+        <!-- Security Best Practices -->
+        <div class="card glass mt-6">
+          <h2>Applied Security Controls Summary</h2>
+          <div class="grid grid-3 mt-4">
+            <div class="sec-box">
+              <div class="sec-icon">🔒</div>
+              <h4>Password Hashing</h4>
+              <p>All passwords are encrypted with bcryptjs (salt factor 10) before storage.</p>
+            </div>
+            <div class="sec-box">
+              <div class="sec-icon">🛡️</div>
+              <h4>Critical Info Shield</h4>
+              <p>Passwords, JWT secrets, and internal stack traces are strictly stripped from all API outputs.</p>
+            </div>
+            <div class="sec-box">
+              <div class="sec-icon">⚡</div>
+              <h4>Brute-Force Rate Limiter</h4>
+              <p>Auth endpoints are restricted by IP rate limiters to stop credential stuffing.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 4: System Health -->
+      <section id="tab-health" class="tab-content">
+        <div class="card glass">
+          <div class="card-header">
+            <h2>Gateway System Diagnostics</h2>
+            <button id="checkHealthBtn" class="btn btn-primary">Check Health Status</button>
+          </div>
+          <div id="healthOutput" class="code-block mt-4">Checking gateway health...</div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Global Toast Notifications -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
